@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>四元数旋转变换演示</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #161a24;
+    --panel2: #1c2130;
+    --border: #2a3142;
+    --text: #e6e9f0;
+    --muted: #8b93a7;
+    --accent: #4cc9f0;
+    --amber: #ffb703;
+    --x: #ff5d5d;
+    --y: #4ade80;
+    --z: #60a5fa;
+    --w: #aab2c5;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  header {
+    padding: 20px 24px 4px;
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+  header h1 { font-size: 22px; margin: 0 0 4px; font-weight: 600; }
+  header p  { color: var(--muted); margin: 0; font-size: 13px; }
+
+  main {
+    display: flex;
+    gap: 16px;
+    padding: 16px 24px 24px;
+    max-width: 1240px;
+    margin: 0 auto;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .view {
+    flex: 1 1 460px;
+    min-width: 320px;
+    max-width: min(100%, 78vh);
+    margin: 0 auto;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: radial-gradient(circle at 50% 42%, #1b2130 0%, #131722 70%);
+    cursor: grab;
+    touch-action: none;
+  }
+  canvas.dragging { cursor: grabbing; }
+  .legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+  .panel {
+    flex: 0 0 400px;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .card h2 {
+    font-size: 13px;
+    margin: 0 0 10px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: .3px;
+  }
+
+  .row { display: flex; align-items: baseline; margin: 3px 0; }
+  .row .lbl { flex: 0 0 130px; color: var(--muted); font-size: 13px; }
+  .row .val { font-family: "Cascadia Code", Consolas, "Courier New", monospace; font-size: 14px; }
+  .val.w { color: var(--w); }
+  .val.x { color: var(--x); }
+  .val.y { color: var(--y); }
+  .val.z { color: var(--z); }
+
+  .bar { position: relative; height: 7px; background: #232938; border-radius: 4px; margin: 3px 0 9px; overflow: hidden; }
+  .bar .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #3a4258; }
+  .bar .fill { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+
+  .matrix-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+    font-size: 13px;
+    text-align: right;
+    max-width: 260px;
+  }
+  .matrix-grid span {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: #cfd6e6;
+  }
+
+  .field { margin: 8px 0; }
+  .field label { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+  .field label b { color: var(--text); font-family: Consolas, monospace; font-weight: 500; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .btnrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  button {
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover { background: #232a3c; border-color: #3a4258; }
+  button.primary { background: #1f3a4d; border-color: #2c5a75; color: #bfe9ff; }
+  button.primary:hover { background: #24506b; }
+  button.warn { background: #3a2b1f; border-color: #5a4430; color: #ffd9a8; }
+  button.warn:hover { background: #4a3726; }
+
+  .check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; margin-top: 10px; }
+  .check input { accent-color: var(--accent); }
+
+  .op {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: var(--panel2);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    color: var(--muted);
+    word-break: break-all;
+  }
+  footer {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 24px 20px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  @media (max-width: 860px) {
+    .panel { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>四元数旋转变换演示</h1>
+  <p>在左侧球面上拖拽即可旋转立方体；右侧实时显示四元数 q、轴-角、欧拉角与旋转矩阵。</p>
+</header>
+
+<main>
+  <div class="view">
+    <canvas id="cv"></canvas>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--x)"></i>X 轴</span>
+      <span><i class="dot" style="background:var(--y)"></i>Y 轴</span>
+      <span><i class="dot" style="background:var(--z)"></i>Z 轴</span>
+      <span><i class="dot" style="background:var(--amber)"></i>当前旋转轴</span>
+      <span><i class="dot" style="background:var(--accent)"></i>待应用旋转轴</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <section class="card">
+      <h2>四元数 &nbsp;q = w + x·i + y·j + z·k</h2>
+      <div class="row"><span class="lbl">w（标量部分）</span><span class="val w" id="qw">1.0000</span></div>
+      <div class="bar"><span class="mid"></span><span class="fill" id="bw" style="background:var(--w)"></span></div>
+      <div class="row"><span class="lbl">x（i 分量）</span><span class="val x" id="qx">0.0000</span></div>
+      <div class="bar"><span class="mid"></span><span class="fill" id="bx" style="background:var(--x)"></span></div>
+      <div class="row"><span class="lbl">y（j 分量）</span><span class="val y" id="qy">0.0000</span></div>
+      <div class="bar"><span class="mid"></span><span class="fill" id="by" style="background:var(--y)"></span></div>
+      <div class="row"><span class="lbl">z（k 分量）</span><span class="val z" id="qz">0.0000</span></div>
+      <div class="bar"><span class="mid"></span><span class="fill" id="bz" style="background:var(--z)"></span></div>
+      <div class="row"><span class="lbl">模长 |q|</span><span class="val" id="qnorm">1.0000</span></div>
+    </section>
+
+    <section class="card">
+      <h2>轴-角表示</h2>
+      <div class="row"><span class="lbl">旋转轴 (x,y,z)</span><span class="val" id="axis">( 0.000, 0.000, 1.000 )</span></div>
+      <div class="row"><span class="lbl">旋转角 θ</span><span class="val" id="angle">0.0°</span></div>
+    </section>
+
+    <section class="card">
+      <h2>欧拉角（ZYX：偏航-俯仰-滚转）</h2>
+      <div class="row"><span class="lbl">偏航 Yaw</span><span class="val" id="yaw">0.0°</span></div>
+      <div class="row"><span class="lbl">俯仰 Pitch</span><span class="val" id="pitch">0.0°</span></div>
+      <div class="row"><span class="lbl">滚转 Roll</span><span class="val" id="roll">0.0°</span></div>
+    </section>
+
+    <section class="card">
+      <h2>旋转矩阵 R（3×3）</h2>
+      <div class="matrix-grid" id="mat">
+        <span>1.0000</span><span>0.0000</span><span>0.0000</span>
+        <span>0.0000</span><span>1.0000</span><span>0.0000</span>
+        <span>0.0000</span><span>0.0000</span><span>1.0000</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>设置旋转轴与角度</h2>
+      <div class="field">
+        <label><span>轴 x</span><b id="axv">0.00</b></label>
+        <input type="range" id="ax" min="-1" max="1" step="0.01" value="0">
+      </div>
+      <div class="field">
+        <label><span>轴 y</span><b id="ayv">0.00</b></label>
+        <input type="range" id="ay" min="-1" max="1" step="0.01" value="0">
+      </div>
+      <div class="field">
+        <label><span>轴 z</span><b id="azv">1.00</b></label>
+        <input type="range" id="az" min="-1" max="1" step="0.01" value="1">
+      </div>
+      <div class="field">
+        <label><span>角度 θ</span><b id="angv">90°</b></label>
+        <input type="range" id="ang" min="0" max="360" step="1" value="90">
+      </div>
+      <div class="btnrow">
+        <button class="primary" id="apply">应用旋转 q = R·q</button>
+        <button id="set">设为旋转 q = R</button>
+      </div>
+      <div class="btnrow">
+        <button data-p="x">绕 X 轴 90°</button>
+        <button data-p="y">绕 Y 轴 90°</button>
+        <button data-p="z">绕 Z 轴 90°</button>
+      </div>
+      <div class="btnrow">
+        <button data-p="rand">随机轴</button>
+        <button class="warn" id="reset">重置为恒等</button>
+      </div>
+      <label class="check"><input type="checkbox" id="spin"> 绕当前轴自动旋转</label>
+      <div class="op" id="op">q = 1（单位四元数，表示无旋转）</div>
+    </section>
+  </aside>
+</main>
+
+<footer>提示：拖拽视角即用四元数累乘（q = Δq ⊗ q）实现，符合 Shoemake 轨迹球约定；滑杆轴在应用前会归一化。</footer>
+
+<script>
+"use strict";
+
+/* ============ 三维 / 四元数数学 ============ */
+
+function vec(x, y, z) { return { x, y, z }; }
+const vAdd  = (a, b) => vec(a.x + b.x, a.y + b.y, a.z + b.z);
+const vSub  = (a, b) => vec(a.x - b.x, a.y - b.y, a.z - b.z);
+const vScale = (a, s) => vec(a.x * s, a.y * s, a.z * s);
+const vDot  = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+const vCross = (a, b) => vec(a.y * b.z - a.z * b.y,
+                             a.z * b.x - a.x * b.z,
+                             a.x * b.y - a.y * b.x);
+const vNorm = (a) => Math.hypot(a.x, a.y, a.z);
+function vUnit(a) {
+  const n = vNorm(a);
+  return n < 1e-12 ? vec(0, 0, 1) : vec(a.x / n, a.y / n, a.z / n);
+}
+
+class Quat {
+  constructor(w = 1, x = 0, y = 0, z = 0) {
+    this.w = w; this.x = x; this.y = y; this.z = z;
+  }
+  static identity() { return new Quat(1, 0, 0, 0); }
+
+  static fromAxisAngle(axis, angleRad) {
+    const a = vUnit(axis);
+    const h = angleRad / 2;
+    const s = Math.sin(h);
+    return new Quat(Math.cos(h), a.x * s, a.y * s, a.z * s);
+  }
+
+  // 四元数乘法：this ⊗ q（先应用 q，再应用 this）
+  multiply(q) {
+    return new Quat(
+      this.w * q.w - this.x * q.x - this.y * q.y - this.z * q.z,
+      this.w * q.x + this.x * q.w + this.y * q.z - this.z * q.y,
+      this.w * q.y - this.x * q.z + this.y * q.w + this.z * q.x,
+      this.w * q.z + this.x * q.y - this.y * q.x + this.z * q.w
+    );
+  }
+  conjugate() { return new Quat(this.w, -this.x, -this.y, -this.z); }
+  norm() { return Math.hypot(this.w, this.x, this.y, this.z); }
+  normalized() {
+    const n = this.norm();
+    return n < 1e-12 ? Quat.identity() : new Quat(this.w / n, this.x / n, this.y / n, this.z / n);
+  }
+
+  // 用四元数旋转向量：v' = q · (0,v) · q*
+  rotateVector(v) {
+    const q = this;
+    const qv = new Quat(0, v.x, v.y, v.z);
+    const r = q.multiply(qv).multiply(q.conjugate());
+    return vec(r.x, r.y, r.z);
+  }
+
+  toAxisAngle() {
+    const q = this.normalized();
+    let w = Math.min(1, Math.max(-1, q.w));
+    const angle = 2 * Math.acos(w);
+    const s = Math.sin(angle / 2);
+    if (s < 1e-9) return { axis: vec(1, 0, 0), angle: 0 };
+    return { axis: vec(q.x / s, q.y / s, q.z / s), angle };
+  }
+
+  toMatrix() {
+    const { w, x, y, z } = this;
+    return [
+      1 - 2 * (y * y + z * z), 2 * (x * y - z * w),     2 * (x * z + y * w),
+      2 * (x * y + z * w),     1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
+      2 * (x * z - y * w),     2 * (y * z + x * w),     1 - 2 * (x * x + y * y)
+    ];
+  }
+
+  // 欧拉角 ZYX（R = Rz(ψ)·Ry(θ)·Rx(φ)），返回角度制
+  toEulerDeg() {
+    const [r00, r01, r02, r10, r11, r12, r20, r21, r22] = this.toMatrix();
+    const clamp = (v) => Math.min(1, Math.max(-1, v));
+    const pitch = Math.asin(clamp(-r20));
+    const yaw = Math.atan2(r10, r00);
+    const roll = Math.atan2(r21, r22);
+    return {
+      yaw:   yaw * 180 / Math.PI,
+      pitch: pitch * 180 / Math.PI,
+      roll:  roll * 180 / Math.PI
+    };
+  }
+}
+
+/* ============ 全局状态 ============ */
+
+const state = {
+  quat: Quat.identity(),
+  spin: false,
+  lastT: 0
+};
+
+const cubeHalf = 1.0;
+const CUBE_VERTS = [
+  vec(-1, -1, -1), vec(1, -1, -1), vec(1, 1, -1), vec(-1, 1, -1),
+  vec(-1, -1, 1),  vec(1, -1, 1),  vec(1, 1, 1),  vec(-1, 1, 1)
+];
+// 每个面：顶点索引 + 外法线 + 颜色（六个面六种颜色，便于观察朝向）
+const CUBE_FACES = [
+  { idx: [4, 5, 6, 7], n: vec(0, 0, 1),  c: [77, 171, 247] },   // +Z
+  { idx: [0, 3, 2, 1], n: vec(0, 0, -1), c: [25, 113, 194] },   // -Z
+  { idx: [1, 2, 6, 5], n: vec(1, 0, 0),  c: [255, 107, 107] },  // +X
+  { idx: [0, 4, 7, 3], n: vec(-1, 0, 0), c: [192, 57, 43] },    // -X
+  { idx: [3, 2, 6, 7], n: vec(0, 1, 0),  c: [81, 207, 102] },   // +Y
+  { idx: [0, 1, 5, 4], n: vec(0, -1, 0), c: [46, 139, 87] }     // -Y
+];
+const AXIS_COLORS = { X: "#ff5d5d", Y: "#4ade80", Z: "#60a5fa" };
+
+/* ============ DOM 引用 ============ */
+
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+
+const el = (id) => document.getElementById(id);
+const els = {
+  qw: el("qw"), qx: el("qx"), qy: el("qy"), qz: el("qz"), qnorm: el("qnorm"),
+  axis: el("axis"), angle: el("angle"),
+  yaw: el("yaw"), pitch: el("pitch"), roll: el("roll"),
+  mat: el("mat"),
+  bw: el("bw"), bx: el("bx"), by: el("by"), bz: el("bz"),
+  ax: el("ax"), ay: el("ay"), az: el("az"), ang: el("ang"),
+  axv: el("axv"), ayv: el("ayv"), azv: el("azv"), angv: el("angv"),
+  op: el("op"), spin: el("spin")
+};
+
+/* ============ 画布尺寸 ============ */
+
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  const rect = cv.getBoundingClientRect();
+  DPR = window.devicePixelRatio || 1;
+  W = rect.width;
+  H = rect.height;
+  cv.width = Math.round(W * DPR);
+  cv.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+new ResizeObserver(resize).observe(cv);
+resize();
+
+/* ============ 数值格式化 ============ */
+
+function fmt(v, d = 4) {
+  const s = v.toFixed(d);
+  return s === (-0).toFixed(d) ? (0).toFixed(d) : s;
+}
+function fmtDeg(v) { return fmt(v, 1) + "°"; }
+
+/* ============ 轨迹球（Shoemake arcball） ============ */
+
+function screenToSphere(px, py) {
+  // 把画布坐标映射到单位球面，球半径取画布短边的 42%
+  const cx = W / 2, cy = H / 2;
+  const r = Math.min(W, H) * 0.42;
+  let x = (px - cx) / r;
+  let y = (py - cy) / r;
+  const d2 = x * x + y * y;
+  let z;
+  if (d2 > 1) {           // 球外：投影到赤道圆边缘
+    const d = Math.sqrt(d2);
+    x /= d; y /= d; z = 0;
+  } else {
+    z = Math.sqrt(1 - d2);
+  }
+  return vec(x, y, z);
+}
+
+let dragging = false;
+let lastSphere = null;
+
+cv.addEventListener("pointerdown", (e) => {
+  dragging = true;
+  lastSphere = screenToSphere(e.offsetX, e.offsetY);
+  cv.setPointerCapture(e.pointerId);
+  cv.classList.add("dragging");
+});
+cv.addEventListener("pointermove", (e) => {
+  if (!dragging) return;
+  const cur = screenToSphere(e.offsetX, e.offsetY);
+  const dot = Math.min(1, Math.max(-1, vDot(lastSphere, cur)));
+  const angle = Math.acos(dot);
+  if (angle > 1e-6) {
+    const axis = vCross(cur, lastSphere);   // Shoemake 约定：end × start
+    const dq = Quat.fromAxisAngle(axis, angle);
+    state.quat = dq.multiply(state.quat).normalized();
+  }
+  lastSphere = cur;
+});
+function endDrag(e) {
+  if (!dragging) return;
+  dragging = false;
+  cv.classList.remove("dragging");
+  try { cv.releasePointerCapture(e.pointerId); } catch (_) {}
+  setOp("拖拽旋转：q = Δq ⊗ q");
+}
+cv.addEventListener("pointerup", endDrag);
+cv.addEventListener("pointercancel", endDrag);
+
+/* ============ 渲染 ============ */
+
+function project(p) {
+  const d = 3.4;                 // 相机距离
+  const f = Math.min(W, H) * 0.82; // 焦距
+  const z = p.z + d;
+  return { x: W / 2 + p.x * f / z, y: H / 2 - p.y * f / z, z, scale: f / z };
+}
+
+function shadeColor([r, g, b], t) {
+  const R = Math.round(r * t), G = Math.round(g * t), B = Math.round(b * t);
+  return `rgb(${R},${G},${B})`;
+}
+
+function drawArrow(x0, y0, x1, y1, color, head = 9, width = 2) {
+  const ang = Math.atan2(y1 - y0, x1 - x0);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - head * Math.cos(ang - 0.42), y1 - head * Math.sin(ang - 0.42));
+  ctx.lineTo(x1 - head * Math.cos(ang + 0.42), y1 - head * Math.sin(ang + 0.42));
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawAxisLine(axis, color, len, dashed) {
+  const a = vUnit(axis);
+  const p0 = project(vScale(a, -len));
+  const p1 = project(vScale(a, len));
+  ctx.save();
+  if (dashed) ctx.setLineDash([6, 5]);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = dashed ? 1.5 : 2;
+  ctx.globalAlpha = dashed ? 0.85 : 0.95;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(p0.x, p0.y);
+  ctx.lineTo(p1.x, p1.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawAxisArrow(axis, color, len) {
+  const a = vUnit(axis);
+  const p1 = project(vScale(a, len));
+  drawArrow(W / 2, H / 2, p1.x, p1.y, color);
+}
+
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  // 淡淡的参考坐标轴（未旋转的“初始”姿态）
+  const home = [
+    { d: vec(1, 0, 0), c: "rgba(255,93,93,0.14)" },
+    { d: vec(0, 1, 0), c: "rgba(74,222,128,0.14)" },
+    { d: vec(0, 0, 1), c: "rgba(96,165,250,0.14)" }
+  ];
+  for (const a of home) {
+    const p = project(vScale(a.d, 1.55));
+    ctx.strokeStyle = a.c;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(W / 2, H / 2);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+
+  // 待应用的旋转轴（虚线，青色）
+  const pendingAxis = vec(+els.ax.value, +els.ay.value, +els.az.value);
+  if (vNorm(pendingAxis) > 1e-6) {
+    drawAxisLine(pendingAxis, "#4cc9f0", 1.9, true);
+  }
+
+  // 立方体顶点旋转
+  const q = state.quat;
+  const rv = CUBE_VERTS.map((v) => q.rotateVector(v));
+  const proj = rv.map((v) => project(v));
+
+  // 光照方向（世界系）
+  const light = vUnit(vec(0.45, 0.65, 1.0));
+
+  // 背面剔除 + 画家算法（按深度从远到近）
+  const visible = [];
+  for (const f of CUBE_FACES) {
+    const n = q.rotateVector(f.n);
+    if (n.z <= 0) continue;             // 面向 +z 相机一侧才可见
+    let depth = 0;
+    for (const i of f.idx) depth += rv[i].z;
+    visible.push({ f, n, depth: depth / f.idx.length });
+  }
+  visible.sort((a, b) => a.depth - b.depth);   // 远的先画
+
+  for (const { f, n } of visible) {
+    const t = 0.32 + 0.68 * Math.max(0, vDot(n, light));
+    ctx.fillStyle = shadeColor(f.c, t);
+    ctx.globalAlpha = 0.95;
+    ctx.beginPath();
+    const pts = f.idx.map((i) => proj[i]);
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "rgba(10,13,20,0.85)";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+
+  // 随物体旋转的三色坐标轴（显示当前姿态）
+  const axLens = { X: 1.72, Y: 1.72, Z: 1.72 };
+  const labels = [
+    { d: vec(1, 0, 0), c: AXIS_COLORS.X, t: "X" },
+    { d: vec(0, 1, 0), c: AXIS_COLORS.Y, t: "Y" },
+    { d: vec(0, 0, 1), c: AXIS_COLORS.Z, t: "Z" }
+  ];
+  for (const L of labels) {
+    const dir = q.rotateVector(L.d);
+    const tip = project(vScale(dir, axLens[L.t]));
+    drawArrow(W / 2, H / 2, tip.x, tip.y, L.c);
+    const lb = project(vScale(dir, axLens[L.t] + 0.22));
+    ctx.fillStyle = L.c;
+    ctx.font = "600 13px Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(L.t, lb.x, lb.y);
+  }
+
+  // 当前四元数对应的旋转轴（琥珀色），旋转角大于阈值才画
+  const aa = q.toAxisAngle();
+  if (aa.angle > 0.008) {
+    drawAxisLine(aa.axis, "#ffb703", 1.95, false);
+    drawAxisArrow(aa.axis, "#ffb703", 1.95);
+  }
+}
+
+/* ============ 读数更新 ============ */
+
+function setBar(el, v) {
+  const pct = Math.min(1, Math.abs(v)) * 50;
+  if (v >= 0) {
+    el.style.left = "50%";
+    el.style.width = pct + "%";
+  } else {
+    el.style.left = (50 - pct) + "%";
+    el.style.width = pct + "%";
+  }
+}
+
+function updateReadout() {
+  const q = state.quat;
+  els.qw.textContent = fmt(q.w);
+  els.qx.textContent = fmt(q.x);
+  els.qy.textContent = fmt(q.y);
+  els.qz.textContent = fmt(q.z);
+  els.qnorm.textContent = fmt(q.norm(), 6);
+  setBar(els.bw, q.w);
+  setBar(els.bx, q.x);
+  setBar(els.by, q.y);
+  setBar(els.bz, q.z);
+
+  const aa = q.toAxisAngle();
+  els.axis.textContent =
+    `( ${fmt(aa.axis.x, 3)}, ${fmt(aa.axis.y, 3)}, ${fmt(aa.axis.z, 3)} )`;
+  els.angle.textContent = fmtDeg(aa.angle * 180 / Math.PI);
+
+  const eu = q.toEulerDeg();
+  els.yaw.textContent = fmtDeg(eu.yaw);
+  els.pitch.textContent = fmtDeg(eu.pitch);
+  els.roll.textContent = fmtDeg(eu.roll);
+
+  const m = q.toMatrix();
+  const cells = els.mat.children;
+  for (let i = 0; i < 9; i++) cells[i].textContent = fmt(m[i]);
+}
+
+/* ============ 操作日志 ============ */
+
+function setOp(msg) {
+  els.op.textContent = msg;
+}
+
+function sliderAxis() {
+  return vec(+els.ax.value, +els.ay.value, +els.az.value);
+}
+
+function applyRotation(mode) {
+  const axis = sliderAxis();
+  const angleRad = (+els.ang.value) * Math.PI / 180;
+  const R = Quat.fromAxisAngle(axis, angleRad);
+  const a = vUnit(axis);
+  const desc = `(${fmt(a.x, 2)}, ${fmt(a.y, 2)}, ${fmt(a.z, 2)})`;
+  if (mode === "set") {
+    state.quat = R.normalized();
+    setOp(`q = R(轴 ${desc}, ${+els.ang.value}°)`);
+  } else {
+    state.quat = R.multiply(state.quat).normalized();
+    setOp(`q = R(轴 ${desc}, ${+els.ang.value}°) ⊗ q`);
+  }
+}
+
+/* ============ 控件绑定 ============ */
+
+function syncSliderLabels() {
+  els.axv.textContent = (+els.ax.value).toFixed(2);
+  els.ayv.textContent = (+els.ay.value).toFixed(2);
+  els.azv.textContent = (+els.az.value).toFixed(2);
+  els.angv.textContent = (+els.ang.value).toFixed(0) + "°";
+}
+[els.ax, els.ay, els.az, els.ang].forEach((s) =>
+  s.addEventListener("input", syncSliderLabels)
+);
+
+document.getElementById("apply").addEventListener("click", () => applyRotation("mul"));
+document.getElementById("set").addEventListener("click", () => applyRotation("set"));
+
+document.getElementById("reset").addEventListener("click", () => {
+  state.quat = Quat.identity();
+  els.ax.value = 0; els.ay.value = 0; els.az.value = 1; els.ang.value = 90;
+  syncSliderLabels();
+  setOp("q = 1（单位四元数，表示无旋转）");
+});
+
+document.querySelectorAll("button[data-p]").forEach((b) => {
+  b.addEventListener("click", () => {
+    const p = b.dataset.p;
+    if (p === "rand") {
+      // 随机单位轴
+      let x, y, z;
+      do {
+        x = Math.random() * 2 - 1;
+        y = Math.random() * 2 - 1;
+        z = Math.random() * 2 - 1;
+      } while (x * x + y * y + z * z > 1 || x * x + y * y + z * z < 1e-4);
+      els.ax.value = x; els.ay.value = y; els.az.value = z;
+      els.ang.value = 90;
+    } else {
+      els.ax.value = p === "x" ? 1 : 0;
+      els.ay.value = p === "y" ? 1 : 0;
+      els.az.value = p === "z" ? 1 : 0;
+      els.ang.value = 90;
+    }
+    syncSliderLabels();
+    applyRotation("mul");
+  });
+});
+
+els.spin.addEventListener("change", () => { state.spin = els.spin.checked; });
+
+/* ============ 主循环 ============ */
+
+function frame(t) {
+  if (state.lastT === 0) state.lastT = t;
+  const dt = Math.min(0.05, (t - state.lastT) / 1000);
+  state.lastT = t;
+
+  if (state.spin) {
+    const axis = sliderAxis();
+    const dq = Quat.fromAxisAngle(axis, dt * 0.9);   // ~0.9 rad/s
+    state.quat = dq.multiply(state.quat).normalized();
+  }
+
+  render();
+  updateReadout();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
